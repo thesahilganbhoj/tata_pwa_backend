@@ -13,5 +13,10 @@ app.use(express.json());
 app.use('/api/employees', employeeRoutes);
 app.use('/api/auth', authRoutes);
 
+app.get('/', (req, res) => {
+    res.send('Backend is running');
+});
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on http://tata-pwa-backend.vercel.app`));
+app.listen(PORT, () => 
+    console.log(`Server running on http://localhost:${PORT}`));
+
