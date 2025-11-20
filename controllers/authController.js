@@ -65,7 +65,7 @@ export const signupUser = async (req, res) => {
           name,
           email,
           password,
-          availability: "Unavailable",
+          availability: "Occupied",
           hours_available: "",
           from_date: "",
           to_date: "",
