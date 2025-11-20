@@ -1,32 +1,85 @@
-import pool from '../db/connection.js';
+import sheetDB from "../db/connection.js";
 
+// ---------------------------
+// LOGIN USER
+// ---------------------------
 export const loginUser = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+
+  if (!email || !password)
+    return res.status(400).json({ error: "Email and password required" });
 
   try {
-    const [rows] = await pool.query("SELECT id, empid, name, email, role FROM people WHERE email=? AND password=?", [email, password]);
-    if (rows.length === 0) return res.status(401).json({ error: "Invalid credentials" });
+    // SheetDB search filter
+    const { data: users } = await sheetDB.get("/search", {
+      params: { email }
+    });
 
-    res.json({ success: true, user: rows[0] });
+    if (!users || users.length === 0)
+      return res.status(401).json({ error: "Invalid credentials" });
+
+    const user = users[0];
+
+    if (user.password !== password)
+      return res.status(401).json({ error: "Invalid credentials" });
+
+    const safeUser = {
+      empid: user.empid,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+
+    res.json({ success: true, user: safeUser });
+
   } catch (err) {
-    res.status(500).json({ error: "Database error" });
+    console.error("Login error →", err);
+    res.status(500).json({ error: "SheetDB login error" });
   }
 };
 
+// ---------------------------
+// SIGNUP USER
+// ---------------------------
 export const signupUser = async (req, res) => {
   const { email, password, name } = req.body;
-  if (!email || !password || !name) return res.status(400).json({ error: "All fields required" });
+
+  if (!email || !password || !name)
+    return res.status(400).json({ error: "All fields required" });
 
   try {
-    const [existing] = await pool.query("SELECT id FROM people WHERE email=?", [email]);
-    if (existing.length > 0) return res.status(409).json({ error: "Email already registered" });
+    const { data: existing } = await sheetDB.get("/search", {
+      params: { email }
+    });
+
+    if (existing.length > 0)
+      return res.status(409).json({ error: "Email already registered" });
 
     const empid = `E${String(Date.now()).slice(-6)}`;
-    await pool.query("INSERT INTO people (empid, name, email, password, availability) VALUES (?, ?, ?, ?, ?)", [empid, name, email, password, "Unavailable"]);
+
+    // SheetDB MUST receive "data" array
+    await sheetDB.post("/", {
+      data: [
+        {
+          empid,
+          name,
+          email,
+          password,
+          availability: "Unavailable",
+          hours_available: "",
+          from_date: "",
+          to_date: "",
+          current_skills: "[]",
+          interests: "[]",
+          previous_projects: "[]",
+          role: "Employee",
+        }
+      ]
+    });
 
     res.json({ success: true, message: "Account created successfully" });
   } catch (err) {
-    res.status(500).json({ error: "Database error" });
+    console.error("Signup error →", err);
+    res.status(500).json({ error: "SheetDB signup error" });
   }
 };
